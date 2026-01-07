@@ -23,8 +23,8 @@ START_ZONE_SIZE_MM = 350  # Robot starting zones in corners
 ROBOT_DIAMETER_MM = 350
 
 # Robot movement settings
-ROBOT_SPEED_MS = 0.5  # meters per second
-ROTATION_SPEED_RAD_S = 1.5  # radians per second
+ROBOT_SPEED_MS = 1  # meters per second
+ROTATION_SPEED_RAD_S = 3  # radians per second
 FPS = 60  # frames per second
 
 # Convert movement speed to pixels per frame
@@ -84,6 +84,19 @@ playable_height = FIELD_HEIGHT_PX - 2 * (BLACK_BORDER_PX + WHITE_BORDER_PX)
 robot_x = playable_width - START_ZONE_SIZE_PX / 2
 robot_y = playable_height - START_ZONE_SIZE_PX / 2
 robot_heading = -math.pi / 2  # -90 degrees = north (up)
+
+# Initialize joystick (Xbox controller) if available
+pygame.joystick.init()
+joystick = None
+if pygame.joystick.get_count() > 0:
+    joystick = pygame.joystick.Joystick(0)
+    joystick.init()
+    print(f"Initialized joystick: {joystick.get_name()}")
+else:
+    print("No joystick detected. Use keyboard controls.")
+
+# Track button states for edge detection (A and Back/Select)
+last_buttons = {'a': False, 'back': False} 
 
 while running:
     for event in pygame.event.get():
@@ -150,6 +163,61 @@ while running:
         robot_heading -= ROTATION_SPEED
     if keys[pygame.K_RIGHT]:
         robot_heading += ROTATION_SPEED
+
+    # Joystick control (if connected) - left stick for translation, right stick X for rotation
+    if joystick is not None:
+        # Poll joystick state
+        pygame.event.pump()
+        # Axes: 0 = left stick X, 1 = left stick Y, 2 = right stick X
+        axis_x = joystick.get_axis(0)
+        axis_y = -joystick.get_axis(1)  # invert Y so up is positive
+        axis_rot = joystick.get_axis(2)
+
+        # Deadzone
+        deadzone = 0.1
+        if abs(axis_x) < deadzone: axis_x = 0.0
+        if abs(axis_y) < deadzone: axis_y = 0.0
+        if abs(axis_rot) < deadzone: axis_rot = 0.0
+
+        # Invert X axis so pushing left produces leftward movement (matches keyboard WASD)
+        axis_x = -axis_x
+
+        # Apply translation (forward/back and strafe)
+        # Forward/back
+        new_x = robot_x + math.cos(robot_heading) * (axis_y * MOVEMENT_SPEED)
+        new_y = robot_y + math.sin(robot_heading) * (axis_y * MOVEMENT_SPEED)
+        if ROBOT_RADIUS_PX <= new_x <= playable_width - ROBOT_RADIUS_PX:
+            robot_x = new_x
+        if ROBOT_RADIUS_PX <= new_y <= playable_height - ROBOT_RADIUS_PX:
+            robot_y = new_y
+
+        # Strafe
+        strafe_angle = robot_heading - math.pi / 2
+        new_x = robot_x + math.cos(strafe_angle) * (axis_x * MOVEMENT_SPEED)
+        new_y = robot_y + math.sin(strafe_angle) * (axis_x * MOVEMENT_SPEED)
+        if ROBOT_RADIUS_PX <= new_x <= playable_width - ROBOT_RADIUS_PX:
+            robot_x = new_x
+        if ROBOT_RADIUS_PX <= new_y <= playable_height - ROBOT_RADIUS_PX:
+            robot_y = new_y
+
+        # Rotation
+        robot_heading += axis_rot * ROTATION_SPEED
+
+        # Buttons: A toggles yellow_on_top, Back/Select resets heading
+        button_a = joystick.get_button(0) if joystick.get_numbuttons() > 0 else False
+        button_back = joystick.get_button(6) if joystick.get_numbuttons() > 6 else False
+
+        if button_a and not last_buttons['a']:
+            yellow_on_top = not yellow_on_top
+            print("Toggled goal colors")
+        if button_back and not last_buttons['back']:
+            # Reset heading to north
+            robot_heading = -math.pi / 2
+            print("Reset heading to north")
+
+        last_buttons['a'] = bool(button_a)
+        last_buttons['back'] = bool(button_back)
+
     
     # Draw the field layers
     # 1. Fill entire background with green (outer border)
