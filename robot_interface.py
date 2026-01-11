@@ -237,15 +237,16 @@ class RobotInterface:
         """
         if self.esp32_serial:
             command_map = {
-                'forward': 'F',
-                'reverse': 'R',
+                'forward': 'R',
+                'reverse': 'F',
                 'stop': 'S'
             }
             
             cmd = command_map.get(mode.lower())
             if cmd:
                 try:
-                    self.esp32_serial.write(cmd.encode())
+                    self.esp32_serial.write((cmd + '\n').encode())
+                    self.esp32_serial.flush()
                 except Exception as e:
                     print(f"Error sending ball collector command: {e}")
             else:
@@ -253,6 +254,12 @@ class RobotInterface:
     
     def close(self):
         """Close all serial connections."""
+        print("Closing RobotInterface...")
+        
+        # Stop balls collector first
+        self.set_ball_collector('stop')
+        time.sleep(0.2)
+        
         # Stop ESP32 reading thread
         self.esp32_running = False
         if self.esp32_thread:
@@ -262,6 +269,7 @@ class RobotInterface:
         if self.nucleo_serial:
             try:
                 self.nucleo_serial.write(b"STOP\n")
+                self.nucleo_serial.flush()
                 self.nucleo_serial.close()
                 print("✓ Closed Nucleo connection")
             except Exception as e:
@@ -269,7 +277,8 @@ class RobotInterface:
         
         if self.esp32_serial:
             try:
-                self.esp32_serial.write(b'S')  # Stop ball collector
+                self.esp32_serial.write(b'S\n')  # Stop ball collector (redundant safety)
+                self.esp32_serial.flush()
                 self.esp32_serial.close()
                 print("✓ Closed ESP32 connection")
             except Exception as e:

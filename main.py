@@ -10,6 +10,7 @@ def main():
     parser.add_argument('--team', type=str, default='blue', choices=['blue', 'yellow'], help='Target goal color (blue or yellow)')
     parser.add_argument('--nucleo', type=str, default='/dev/ttyACM0', help='Serial port for Nucleo')
     parser.add_argument('--esp32', type=str, default='/dev/ttyUSB0', help='Serial port for ESP32')
+    parser.add_argument('--camera', type=int, default=0, help='Camera index (default: 0)')
     
     args = parser.parse_args()
     
@@ -24,10 +25,17 @@ def main():
         sys.exit(1)
 
     # 2. Initialize Camera
-    print("Initializing Camera...")
-    cap = cv2.VideoCapture(0)
+    print(f"Initializing Camera {args.camera}...")
+    # Try with V4L2 backend first which is more stable on Linux
+    cap = cv2.VideoCapture(args.camera, cv2.CAP_V4L2)
+    
     if not cap.isOpened():
-        print("Error: Could not open camera")
+        print(f"Error: Could not open camera {args.camera}")
+        print("Trying default backend...")
+        cap = cv2.VideoCapture(args.camera)
+        
+    if not cap.isOpened():
+        print(f"Error: Could not open camera {args.camera} with default backend either.")
         robot.close()
         sys.exit(1)
 
