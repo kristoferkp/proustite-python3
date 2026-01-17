@@ -5,7 +5,7 @@ from robot_interface import RobotInterface
 from vision import detect_objects
 
 class GameLogic:
-    def __init__(self, robot: RobotInterface, target_goal_color="blue", opponent_goal_color="yellow"):
+    def __init__(self, robot: RobotInterface, target_goal_color="blue"):
         self.robot = robot
         self.target_goal_color = target_goal_color # The goal we want to score in (opponent's goal)
         self.own_goal_color = "yellow" if target_goal_color == "blue" else "blue"
@@ -16,13 +16,13 @@ class GameLogic:
         
         # Game Progress
         self.balls_collected = 0
-        self.max_balls = 5
+        self.max_balls = 3
         self.game_start_time = 0
         self.game_duration = 150 # seconds
         
         # Movement Parameters
         self.search_rotation_speed = 2
-        self.approach_speed = 0.67
+        self.approach_speed = 0.75
         self.approach_kP = 0.003 # Proportional gain for turning
         self.deposit_time = 3 # How long to run the depositor
         self.deposit_backup_speed = -0.6
@@ -150,6 +150,7 @@ class GameLogic:
             # Speed: Constant forward
             # If ball is very close (large area), we might be collecting it
             if closest_ball['area'] > 32000: # Threshold for "close enough to suck"
+                self.robot.send_velocity_command(self.approach_speed/2, 0, 0)
                 self.set_state("COLLECTING")
             else:
                 self.robot.send_velocity_command(self.approach_speed, 0, omega)
