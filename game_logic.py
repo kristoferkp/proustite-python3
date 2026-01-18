@@ -21,11 +21,12 @@ class GameLogic:
         self.game_duration = 150 # seconds
         
         # Movement Parameters
-        self.search_rotation_speed = 2
+        self.search_rotation_speed = 3
         self.approach_speed = 0.75
-        self.approach_kP = 0.003 # Proportional gain for turning
-        self.deposit_time = 3 # How long to run the depositor
-        self.deposit_backup_speed = -0.6
+        self.approach_kP = 0.008 # Proportional gain for turning (balls) - increased for better centering
+        self.goal_approach_kP = 0.01 # Higher gain for goal centering (more aggressive)
+        self.deposit_time = 4 # How long to run the depositor
+        self.deposit_backup_speed = -0.2
         
         # Image Parameters (Assumes 640x480 typically, but will adjust)
         self.frame_width = 640
@@ -38,7 +39,7 @@ class GameLogic:
         
         # Goal approach detection
         self.goal_was_centered = False
-        self.goal_center_tolerance = 100 # pixels from center for goal centering
+        self.goal_center_tolerance = 50 # pixels from center for goal centering (tighter for better accuracy)
         
         self.last_collector_mode = None
 
@@ -110,7 +111,7 @@ class GameLogic:
                 # Cycle: Spin for 4s, Drive for 1.5s
                 cycle_time = search_time % 5.5
                 
-                if cycle_time < 4.0:
+                if cycle_time < 3.0:
                     self.robot.send_velocity_command(0, 0, self.search_rotation_speed)
                 else:
                     # Drive forward with slight turn to explore new areas
@@ -161,8 +162,8 @@ class GameLogic:
             self.robot.send_velocity_command(self.approach_speed, 0, 0)
             self.set_ball_collector("forward")
             
-            # Wait for 4 seconds to ensure collection
-            if (current_time - self.state_start_time) > 4.0:
+            # Wait for 6 seconds to ensure collection (longer to fully intake the ball)
+            if (current_time - self.state_start_time) > 6.0:
                 print("Collection timeout - assumed collected")
                 self.balls_collected += 1
                 self.ball_was_centered = False
@@ -189,23 +190,29 @@ class GameLogic:
                 
             goal = max(target_goal, key=lambda g: g['area'])
             
-            # Check if goal is centered
+            # Center the goal using proportional control with higher gain
             goal_x = goal['center'][0]
-            if abs(goal_x - self.frame_center_x) < self.goal_center_tolerance:
-                self.goal_was_centered = True
-            
             error_x = self.frame_center_x - goal_x
-            omega = error_x * self.approach_kP
+            omega = error_x * self.goal_approach_kP  # Use higher gain for goals
             
-            # Deposit only if goal is centered AND almost fills the frame
-            # Assuming 640x480 frame, full frame area ~= 307200, so 150000+ is almost full
-            if self.goal_was_centered and goal['area'] > 100000:
+            # Check if goal is centered (tighter tolerance)
+            if abs(error_x) < self.goal_center_tolerance:
+                self.goal_was_centered = True
+            else:
+                # Reset flag if not centered anymore
+                self.goal_was_centered = False
+            
+            # Deposit only if goal is centered AND close enough (large area)
+            # Assuming 640x480 frame, full frame area ~= 307200, so 150000+ is close
+            if self.goal_was_centered and goal['area'] > 150000:
                 self.set_state("DEPOSITING")
             else:
-                 self.robot.send_velocity_command(self.approach_speed, 0, omega)
+                # Continue centering and approaching the goal
+                self.robot.send_velocity_command(self.approach_speed, 0, omega)
 
         elif self.state == "DEPOSITING":
             # Reverse ball collector and drive backwards to push balls to the front roller
+            # In the finals, the robot didn't actually drive backward, so please fix this
             self.set_ball_collector("reverse")
             self.robot.send_velocity_command(self.deposit_backup_speed, 0, 0)
             
@@ -217,6 +224,7 @@ class GameLogic:
             # Turn around to avoid seeing the deposited balls immediately
             self.set_ball_collector("forward")
             self.robot.send_velocity_command(0, 0, self.search_rotation_speed)
+            self.max_balls = 1
 
             # Turn for enough time to face away (~180 degrees)
             # Speed 2.0 rad/s -> ~3.14 rad needed -> ~1.6s

@@ -1,177 +1,45 @@
-# Proustite Python Control
+# Proustite Software
 
-This directory contains Python scripts for remote controlling the Proustite robot with **Layer 2 drift compensation**.
+Hello! This is a repository of the many iterations of code for my DeltaX 2026 football robot.
 
-## 🆕 Layer 2 Controller
+This code runs on the Raspberry Pi. The Raspberry Pi is connected to a Logitech C930e webcam, a Nucleo G431KB and an ESP32/Arduino using USB.
 
-The new Layer 2 controller provides:
-- **IMU-based drift compensation** - Automatically corrects rotational drift using ESP32 gyroscope data
-- **Ball collector control** - Integrated control of the drone motor (forward/reverse/stop)
-- **Closed-loop heading control** - Maintains robot orientation even without user input
-- **Dual hardware integration** - Simultaneously manages Nucleo (movement) and ESP32 (IMU + collector)
+The Nucleo and ESP32/Arduino connect using serial over USB, baud rate 115200.
 
-See [LAYER2_README.md](LAYER2_README.md) for detailed documentation.
+# Autonomous mode
+Start the program using ```python3 main.py --team [target colour]```
 
-## Prerequisites
+Consult ```main.py```for more options.
 
-### On Laptop (Client)
-- Python 3
-- `pygame` library for Xbox controller input
+The program took a long time to start up, so maybe make the start command a key press and not the starting of the python code as the init of the serial devices took like 5 seconds.
 
-```bash
-pip install pygame
-```
+Also it didn't help that the ESP32 had a broken connector and half the time didn't start up.
 
-### On Raspberry Pi (Server)
-- Python 3
-- `pyserial` library for communicating with Nucleo and ESP32
+The ```layer2_controller.py``` uses the IMU data from the ESP32/Arduino to compensate for drift in the robots motion. The motors are worn and some wheels spun longer than others.
 
-```bash
-pip install pyserial
-```
+The game logic and the robot state machine is inside ```game_logic.py```. 
 
-## Hardware Architecture
+I had trouble updating the code while at the competition site as there was a lot of radio interference and my phone hotspot wasn't powerful enough.
 
-```
-Laptop (Client)          Raspberry Pi (Server)          Hardware
-┌─────────────┐         ┌──────────────────┐          ┌─────────────┐
-│ Xbox        │   UDP   │ Layer2Controller │  Serial  │ Nucleo      │
-│ Controller  ├────────►│ - Drift comp     ├─────────►│ - Movement  │
-│             │         │ - Ball collector │          │ - 3 Motors  │
-│ client.py   │         │                  │  Serial  │             │
-└─────────────┘         │ server.py        ├─────────►│ ESP32       │
-                        └──────────────────┘          │ - MPU6050   │
-                                                       │ - ESC       │
-                                                       └─────────────┘
-```
+**If you can, please try to take a portable WAP with you, or try to connect to the Pi over a wired connection.**
 
-## Quick Start
+## Vision
+The vision system was supposed to use a Raspberry Pi AI kit for the inference of a custom trained YOLOv11n model. T
 
-### 1. Hardware Setup
-- Connect Nucleo to Raspberry Pi via USB (typically `/dev/ttyACM0`)
-- Connect ESP32 to Raspberry Pi via USB (typically `/dev/ttyUSB0`)
-- Connect Xbox controller to laptop
-- Ensure Raspberry Pi and laptop are on same network
+he model was completed in time and compiled to the Hailo format, it is the ```yolov11n.hef``` file, but I didn't have time to implement it as I had connection issues.
 
-### 2. Configure Serial Ports
+The ```detection_simple.py``` has an example on how to use OpenCV with the Hailo-8L. For the venv to run the Hailo, follow the [Hailo-RPI5-examples tutorial](https://github.com/hailo-ai/hailo-rpi5-examples).
 
-Edit `server.py` and update:
-```python
-NUCLEO_PORT = "/dev/ttyACM0"  # Check with: ls /dev/tty*
-ESP32_PORT = "/dev/ttyUSB0"   # Check with: ls /dev/tty*
-```
+The ```vision.py```right now uses colour masks to identify objects. 
 
-Grant serial port permissions (first time only):
-```bash
-sudo usermod -a -G dialout $USER
-# Log out and back in for permissions to take effect
-```
+Other robots are prohibited from using similar Yellow, Blue, Orange and Green colours, but some didn't want to abide by the rules. (Yes, some shade was thrown)
 
-### 3. Configure Network
+The goal detection is quite bad. I tried to fix it, but I didn't have a solid connection to the robot, so I couldn't even save the file using ssh.
 
-Edit `client.py` and update:
-```python
-SERVER_IP = "proustite.local"  # or Raspberry Pi's IP address
-```
+# Manual mode
+The ```client.py``` runs on a laptop with a controller like the Xbox Series controller connected.
+The IP address of the server must be changed (not needed if your Raspberry Pi advertises itself under ```proustite.local```).
 
-Find Pi's IP: `hostname -I` on Raspberry Pi
+The ```server.py```runs on the Raspberry Pi.
 
-### 4. Run Server (on Raspberry Pi)
-
-```bash
-cd proustite-python
-python3 server.py
-```
-
-Expected output:
-```
-=== Proustite Robot Server - Layer 2 Controller ===
-✓ Connected to Nucleo on /dev/ttyACM0
-✓ Connected to ESP32 on /dev/ttyUSB0
-✓ Listening on UDP 0.0.0.0:5005
-✓ Control loop running at 50 Hz
-
-=== Server Ready ===
-Waiting for commands...
-```
-
-### 5. Run Client (on Laptop)
-
-```bash
-cd proustite-python
-python3 client.py
-```
-
-## Controls (Xbox Controller)
-
-### Movement
-- **Left Stick Y:** Forward / Backward (vx)
-- **Left Stick X:** Strafe Left / Right (vy)
-- **Right Stick X:** Rotate Left / Right (omega)
-
-### Ball Collector
-- **A Button:** Ball collector FORWARD
-- **B Button:** Ball collector STOP
-- **X Button:** Ball collector REVERSE
-
-### Special Functions
-- **Back/Select Button:** Reset heading to 0°
-
-## Features
-
-### Drift Compensation
-
-The Layer 2 controller continuously monitors the robot's heading using the MPU6050 IMU on the ESP32. When you stop rotating the robot:
-
-1. Current heading is "locked" as the target
-2. Controller monitors for any drift (unwanted rotation)
-3. Automatically applies correction to maintain heading
-4. User doesn't feel any resistance - correction is transparent
-
-**Result:** Robot maintains its orientation without constant joystick input!
-
-### Ball Collector Control
-
-The drone motor (BLHeli_S ESC) on the ESP32 is controlled via button presses:
-- **Forward:** Collect balls into robot
-- **Reverse:** Eject balls from robot  
-- **Stop:** Turn off motor
-
-Commands are sent directly to ESP32 via the serial interface.
-
-## File Structure
-
-```
-proustite-python/
-├── client.py              # Laptop client (joystick control)
-├── server.py              # Raspberry Pi server (main entry point)
-├── robot_interface.py     # Hardware communication layer
-├── layer2_controller.py   # Drift compensation controller
-├── test_layer2.py         # Test suite
-├── README.md              # This file
-└── LAYER2_README.md       # Detailed Layer 2 documentation
-```
-
-## Troubleshooting
-
-### "Failed to connect to Nucleo/ESP32"
-- Check USB connections
-- Verify serial port names: `ls /dev/tty*`
-- Check permissions: `sudo usermod -a -G dialout $USER`
-
-### "No joystick found"
-- Connect Xbox controller to laptop
-- Install pygame: `pip install pygame`
-
-### Drift compensation not working
-- Send STATUS command to view IMU data
-- Check that gyro_z values are updating
-- Try increasing drift_gain in server.py
-
-### Robot not moving
-- Check Nucleo firmware is uploaded
-- Verify VEL commands reach Nucleo
-
-## Documentation
-
-See [LAYER2_README.md](LAYER2_README.md) for complete documentation.
+Please note the port must match between the computers and the port must be open on both of the computers.

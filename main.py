@@ -44,8 +44,6 @@ def main():
     game = GameLogic(robot, target_goal_color=args.team)
     
     print("Starting Game Loop. Press 'q' to quit.")
-    print("Waiting 2 seconds before starting...")
-    time.sleep(2)
     
     game.start_game()
     
