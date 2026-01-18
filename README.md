@@ -2,6 +2,8 @@
 
 Hello! This is a repository of the many iterations of code for my DeltaX 2026 football robot.
 
+The main repository can be found [here](https://github.com/kristoferkp/proustite-deltax/tree/main).
+
 This code runs on the Raspberry Pi. The Raspberry Pi is connected to a Logitech C930e webcam, a Nucleo G431KB and an ESP32/Arduino using USB.
 
 The Nucleo and ESP32/Arduino connect using serial over USB, baud rate 115200.
