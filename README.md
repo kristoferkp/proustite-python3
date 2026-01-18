@@ -24,9 +24,9 @@ I had trouble updating the code while at the competition site as there was a lot
 **If you can, please try to take a portable WAP with you, or try to connect to the Pi over a wired connection.**
 
 ## Vision
-The vision system was supposed to use a Raspberry Pi AI kit for the inference of a custom trained YOLOv11n model. T
+The vision system was supposed to use a Raspberry Pi AI kit for the inference of a custom trained YOLOv11n model. 
 
-he model was completed in time and compiled to the Hailo format, it is the ```yolov11n.hef``` file, but I didn't have time to implement it as I had connection issues.
+The model was completed in time and compiled to the Hailo format, it is the ```yolov11n.hef``` file, but I didn't have time to implement it as I had connection issues.
 
 The ```detection_simple.py``` has an example on how to use OpenCV with the Hailo-8L. For the venv to run the Hailo, follow the [Hailo-RPI5-examples tutorial](https://github.com/hailo-ai/hailo-rpi5-examples).
 
